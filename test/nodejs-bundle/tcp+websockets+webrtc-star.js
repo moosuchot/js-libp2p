@@ -21,7 +21,6 @@ describe('TCP + WebSockets + WebRTCStar', () => {
   let ss
 
   before(function (done) {
-    this.timeout(5000)
     parallel([
       (cb) => {
         signalling.start({ port: 24642 }, (err, server) => {
@@ -196,29 +195,35 @@ describe('TCP + WebSockets + WebRTCStar', () => {
   })
 
   it('nodeAll.dial nodeWStar using PeerInfo', function (done) {
-    this.timeout(10000)
     nodeAll.dial(nodeWStar.peerInfo, (err) => {
       expect(err).to.not.exist()
 
-      // Some time for Identify to finish
-      setTimeout(check, 500)
+      const numberOfTries = 10
+      const pauseBetweenTries = 10
+      let currentTry = 1
 
       function check () {
-        parallel([
-          (cb) => {
-            const peers = nodeAll.peerBook.getAll()
-            expect(Object.keys(peers)).to.have.length(3)
-            expect(Object.keys(nodeAll.swarm.muxedConns)).to.have.length(1)
-            cb()
-          },
-          (cb) => {
-            const peers = nodeWStar.peerBook.getAll()
-            expect(Object.keys(peers)).to.have.length(1)
-            expect(Object.keys(nodeAll.swarm.muxedConns)).to.have.length(1)
-            cb()
+        console.log('checking')
+        const peersAll = nodeAll.peerBook.getAll()
+        const peersWStar = nodeWStar.peerBook.getAll()
+
+        try {
+          expect(Object.keys(peersAll)).to.have.length(3)
+          expect(Object.keys(peersWStar)).to.have.length(1)
+          expect(Object.keys(nodeAll.swarm.muxedConns)).to.have.length(1)
+          console.log('everything ok')
+          done()
+        } catch (err) {
+          if (currentTry >= numberOfTries) {
+            console.log('done trying')
+            done(err)
+          } else {
+            currentTry = currentTry + 1
+            setTimeout(check, pauseBetweenTries)
           }
-        ], done)
+        }
       }
+      check()
     })
   })
 
